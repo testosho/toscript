@@ -1193,58 +1193,54 @@ function openFountainFile(e) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const content = e.target.result;
+        let newText = '';
 
         if (file.name.endsWith('.filmproj')) {
             try {
                 const filmproj = JSON.parse(content);
                 if (filmproj.projectInfo) {
-                    // Restore entire project data
                     projectData.projectInfo = { ...projectData.projectInfo, ...filmproj.projectInfo };
-
-                    // **THE FIX**: Prioritize loading the full script content if it exists
                     if (filmproj.projectInfo.scriptContent) {
-                        fountainInput.value = filmproj.projectInfo.scriptContent;
-                    } else {
-                        // Fallback for older .filmproj files without scriptContent
-                        let fountainText = '';
-                        if (filmproj.scenes && Array.isArray(filmproj.scenes)) {
-                            filmproj.scenes.forEach(scene => {
-                                fountainText += scene.heading + '\n';
-                                if (scene.description && Array.isArray(scene.description)) {
-                                    fountainText += scene.description.join('\n') + '\n\n';
-                                }
-                            });
-                        }
-                        fountainInput.value = fountainText.trim();
-                    }
-
-                    if (!fountainInput.value) {
-                        setPlaceholder();
-                    } else {
-                        clearPlaceholder();
+                        newText = filmproj.projectInfo.scriptContent;
+                    } else if (filmproj.scenes && Array.isArray(filmproj.scenes)) {
+                        // Fallback for older .filmproj files
+                        filmproj.scenes.forEach(scene => {
+                            newText += scene.heading + '\n';
+                            if (scene.description && Array.isArray(scene.description)) {
+                                newText += scene.description.join('\n') + '\n\n';
+                            }
+                        });
                     }
                 }
             } catch (err) {
                 alert('Invalid .filmproj file format. Could not load project.');
                 console.error("Error parsing .filmproj file:", err);
+                return; // Stop execution if file is invalid
             }
         } else {
             // For .fountain or .txt files
-            fountainInput.value = content;
-            clearPlaceholder();
+            newText = content;
         }
 
+        fountainInput.value = newText.trim();
+        if (fountainInput.value) {
+            clearPlaceholder();
+        } else {
+            setPlaceholder();
+        }
+
+        // --- THE FIX ---
+        // 1. Add the new state to history.
         history.add(fountainInput.value);
+
+        // 2. Save the new state to localStorage and update the global projectData object.
+        //    This also re-extracts scenes from the new text.
         saveProjectData();
 
-        // **THE NEW FIX**: Update UI components directly instead of using syncAll
+        // 3. Unconditionally update all UI components that depend on the script content.
         updateSceneNavigator();
-        if (currentView === 'card') {
-            renderEnhancedCardView();
-        }
-        if (currentView === 'script') {
-            renderEnhancedScript();
-        }
+        renderEnhancedCardView(); // Always update card view data
+        renderEnhancedScript();   // Always update script preview
     };
     reader.readAsText(file, 'UTF-8');
 }
