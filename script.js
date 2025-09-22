@@ -237,7 +237,7 @@ function parseFountain(input) {
         }
 
         // Character names (all caps with next line)
-        if (line === line.toUpperCase() && !line.startsWith('!') && line.length > 0 && nextLine) {
+        if (line === line.toUpperCase() && !line.startsWith('!') && !line.endsWith('.') && line.length > 0 && nextLine) {
             tokens.push({ type: 'character', text: line });
             inDialogue = true;
             continue;
