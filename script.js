@@ -203,92 +203,46 @@ FADE OUT.`;
         updateAutoSaveIndicator();
     }
 
-    // WORKING CODE ONE PARSER - Replace your parseFountain function with this
-function parseFountain(input) {
-    if (input === placeholderText || !input.trim()) {
-        return [];
-    }
-    const lines = input.split('\n');
-    const tokens = [];
-    let inDialogue = false;
+    // --- REWRITTEN PARSING AND RENDERING FUNCTIONS ---
 
-    for(let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
+    // --- REWRITTEN PARSING AND RENDERING FUNCTIONS (SYNCHRONOUS) ---
 
-        if (!line) {
-            tokens.push({ type: 'empty' });
-            inDialogue = false;
-            continue;
+    // This function now synchronously wraps the Fountain.js library.
+    function parseFountain(text) {
+        if (typeof fountain === 'undefined') {
+            console.error("Fountain.js library is not loaded.");
+            return null;
         }
-
-        // Scene headings
-        if (line.toUpperCase().startsWith('INT.') || line.toUpperCase().startsWith('EXT.')) {
-            tokens.push({ type: 'sceneheading', text: line.toUpperCase() });
-            inDialogue = false;
-            continue;
-        }
-
-        // Transitions
-        if (line.toUpperCase().endsWith('TO:') || line.toUpperCase() === 'FADE OUT.' || line.toUpperCase() === 'FADE IN:' || line.toUpperCase() === 'FADE TO BLACK:') {
-            tokens.push({ type: 'transition', text: line.toUpperCase() });
-            inDialogue = false;
-            continue;
-        }
-
-        // Character names (all caps with next line)
-        if (line === line.toUpperCase() && !line.startsWith('!') && !line.endsWith('.') && line.length > 0 && nextLine) {
-            tokens.push({ type: 'character', text: line });
-            inDialogue = true;
-            continue;
-        }
-
-        // Parentheticals in dialogue
-        if (inDialogue && line.startsWith('(')) {
-            tokens.push({ type: 'parenthetical', text: line });
-            continue;
-        }
-
-        // Dialogue
-        if (inDialogue) {
-            tokens.push({ type: 'dialogue', text: line });
-            continue;
-        }
-
-        // Action (everything else)
-        tokens.push({ type: 'action', text: line });
+        // Get tokens and HTML output synchronously.
+        return fountain.parse(text, true);
     }
 
-    return tokens;
-}
-
-    // Patch: Enhanced extractScenesFromText for Better Handling of Deletions and Orphans
+    // Rewritten to use the tokens from Fountain.js synchronously.
     function extractScenesFromText(text) {
         if (!text || !text.trim()) return [];
-        const tokens = parseFountain(text);
+
+        const output = parseFountain(text);
+        if (!output || !output.tokens) return [];
+
         const scenes = [];
         let currentScene = null;
         let sceneNumber = 0;
 
-        tokens.forEach(token => {
-            if (token.type === 'sceneheading') {
-                // Save previous scene if it exists
+        output.tokens.forEach(token => {
+            if (token.type === 'scene_heading') {
                 if (currentScene) scenes.push(currentScene);
-                // Start new scene
                 sceneNumber++;
                 const heading = token.text.toUpperCase();
-                // Extract scene type (INT./EXT.)
+
                 const sceneTypeMatch = heading.match(/(INT\.|EXT\.|INT\.\/EXT\.|EXT\.\/INT\.)/i);
-                const sceneType = sceneTypeMatch ? sceneTypeMatch[1] : 'INT.';
-                // Extract time of day
-                const timeMatch = heading.match(/-(DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|CONTINUOUS|LATER|MOMENTS LATER)/i);
+                const sceneType = sceneTypeMatch ? sceneTypeMatch[0].replace(/\./g, '') : 'INT';
+
+                const timeMatch = heading.match(/-(?:\s*)?(DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|CONTINUOUS|LATER|MOMENTS LATER)\s*$/i);
                 const timeOfDay = timeMatch ? timeMatch[1] : 'DAY';
-                // Extract location (everything between scene type and time)
-                let location = heading
-                    .replace(/(INT\.|EXT\.|INT\.\/EXT\.|EXT\.\/INT\.)/i, '')
-                    .replace(/-(DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|CONTINUOUS|LATER|MOMENTS LATER)/i, '')
-                    .trim();
+
+                let location = heading.replace(/(INT\.|EXT\.|INT\.\/EXT\.|EXT\.\/INT\.)/i, '').replace(/-(?:\s*)?(DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|CONTINUOUS|LATER|MOMENTS LATER)\s*$/i, '').trim();
                 if (!location) location = 'LOCATION';
+
                 currentScene = {
                     number: sceneNumber,
                     heading: heading,
@@ -299,37 +253,21 @@ function parseFountain(input) {
                     characters: []
                 };
             } else if (currentScene) {
-                // Append to current scene
-                if (token.type === 'action' || token.type === 'dialogue') {
+                if (token.type === 'action' || token.type === 'dialogue' || token.type === 'parenthetical' || token.type === 'transition') {
                     currentScene.description.push(token.text);
                 } else if (token.type === 'character') {
                     const charName = token.text.trim().toUpperCase();
-                    if (!currentScene.characters.includes(charName)) currentScene.characters.push(charName);
+                    if (!currentScene.characters.includes(charName)) {
+                        currentScene.characters.push(charName);
+                    }
                     currentScene.description.push(token.text);
-                } else if (token.type === 'parenthetical' || token.type === 'transition') {
-                    currentScene.description.push(token.text);
-                }
-            } else {
-                // Handle orphaned content (e.g., after deletion) as a new untitled scene
-                sceneNumber++;
-                currentScene = {
-                    number: sceneNumber,
-                    heading: 'UNTITLED SCENE',
-                    sceneType: 'INT.',
-                    location: 'UNKNOWN',
-                    timeOfDay: 'DAY',
-                    description: [token.text],
-                    characters: []
-                };
-                if (token.type === 'character') {
-                    const charName = token.text.trim().toUpperCase();
-                    currentScene.characters.push(charName);
                 }
             }
         });
-        // Don't forget the last scene
+
         if (currentScene) scenes.push(currentScene);
-        console.log(`Extracted ${scenes.length} scenes from text`);
+
+        console.log(`Extracted ${scenes.length} scenes from text using Fountain.js`);
         return scenes;
     }
 
@@ -479,81 +417,23 @@ function parseFountain(input) {
         if (fountainInput) fountainInput.style.fontSize = `${fontSize}px`;
     }
 
-// UPDATED RENDERER: Uses the new parser to create clean HTML.
-   // FIXED: Enhanced script rendering with proper scene numbering
-function renderEnhancedScript() {
-    if (!screenplayOutput || !fountainInput) return;
+    // --- REWRITTEN RENDERER ---
+    // This function now uses the HTML output directly from the Fountain.js library,
+    // ensuring correct, standard-compliant rendering of the screenplay.
+    function renderEnhancedScript() {
+        if (!screenplayOutput || !fountainInput) return;
 
-    const text = fountainInput.value;
-    const lines = text.split('\n');
-    let scriptHtml = '';
-    let sceneCount = 0;
-    let inDialogue = false;
-
-    for(let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
-
-        if (!line) {
-            scriptHtml += '<div class="empty-line"></div>';
-            inDialogue = false;
-            continue;
+        const text = fountainInput.value;
+        if (text === placeholderText || !text.trim()) {
+            screenplayOutput.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 4rem;">Preview will appear here.</div>';
+            return;
         }
 
-        // Title page elements  
-        if (/^(TITLE|AUTHOR|CREDIT|SOURCE):/i.test(line)) {
-            scriptHtml += `<div class="title-page-element">${line}</div>`;
-            inDialogue = false;
-            continue;
+        const output = parseFountain(text);
+        if (output && output.html && output.html.script) {
+            screenplayOutput.innerHTML = output.html.title_page + output.html.script;
         }
-
-        // In your renderEnhancedScript function, change the scene heading part to:
-if (line.toUpperCase().startsWith('INT.') || line.toUpperCase().startsWith('EXT.')) {
-    sceneCount++;
-    if (showSceneNumbers) {
-        scriptHtml += `<div class="scene-heading">
-            <span>${line.toUpperCase()}</span>
-            <span class="scene-number">${sceneCount}</span>
-        </div>`;
-    } else {
-        scriptHtml += `<div class="scene-heading">${line.toUpperCase()}</div>`;
     }
-    inDialogue = false;
-    continue;
-}
-
-        // Transitions
-        if (line.toUpperCase().endsWith('TO:') || line.toUpperCase() === 'FADE OUT.' || line.toUpperCase() === 'FADE IN:' || line.toUpperCase() === 'FADE TO BLACK:') {
-            scriptHtml += `<div class="transition">${line.toUpperCase()}</div>`;
-            inDialogue = false;
-            continue;
-        }
-
-        // Character names (all caps with next line)
-        if (line === line.toUpperCase() && !line.startsWith('!') && line.length > 0 && nextLine) {
-            scriptHtml += `<div class="character">${line}</div>`;
-            inDialogue = true;
-            continue;
-        }
-
-        // Parentheticals in dialogue
-        if (inDialogue && line.startsWith('(')) {
-            scriptHtml += `<div class="parenthetical">${line}</div>`;
-            continue;
-        }
-
-        // Dialogue
-        if (inDialogue) {
-            scriptHtml += `<div class="dialogue">${line}</div>`;
-            continue;
-        }
-
-        // Action (everything else)
-        scriptHtml += `<div class="action">${line}</div>`;
-    }
-
-    screenplayOutput.innerHTML = scriptHtml;
-}
 
 
     
