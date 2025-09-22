@@ -1236,9 +1236,15 @@ function openFountainFile(e) {
 
         history.add(fountainInput.value);
         saveProjectData();
-        // After loading, sync everything to be safe
-        syncAll(true);
+
+        // **THE NEW FIX**: Update UI components directly instead of using syncAll
         updateSceneNavigator();
+        if (currentView === 'card') {
+            renderEnhancedCardView();
+        }
+        if (currentView === 'script') {
+            renderEnhancedScript();
+        }
     };
     reader.readAsText(file, 'UTF-8');
 }
