@@ -253,14 +253,17 @@ FADE OUT.`;
                     characters: []
                 };
             } else if (currentScene) {
+                // Strip HTML for storage, ensuring .filmproj saves plain text
+                const plainText = token.text.replace(/<[^>]*>?/gm, '');
+
                 if (token.type === 'action' || token.type === 'dialogue' || token.type === 'parenthetical' || token.type === 'transition') {
-                    currentScene.description.push(token.text);
+                    currentScene.description.push(plainText);
                 } else if (token.type === 'character') {
-                    const charName = token.text.trim().toUpperCase();
+                    const charName = plainText.trim().toUpperCase();
                     if (!currentScene.characters.includes(charName)) {
                         currentScene.characters.push(charName);
                     }
-                    currentScene.description.push(token.text);
+                    currentScene.description.push(plainText);
                 }
             }
         });
