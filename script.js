@@ -1186,20 +1186,26 @@ async function saveAsPdfUnicode() {
     }
 }
 
-    function openFountainFile(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+function openFountainFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const content = e.target.result;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const content = e.target.result;
 
-            if (file.name.endsWith('.filmproj')) {
-                try {
-                    const filmproj = JSON.parse(content);
-                    if (filmproj.projectInfo) {
-                        projectData.projectInfo = { ...projectData.projectInfo, ...filmproj.projectInfo };
+        if (file.name.endsWith('.filmproj')) {
+            try {
+                const filmproj = JSON.parse(content);
+                if (filmproj.projectInfo) {
+                    // Restore entire project data
+                    projectData.projectInfo = { ...projectData.projectInfo, ...filmproj.projectInfo };
 
+                    // **THE FIX**: Prioritize loading the full script content if it exists
+                    if (filmproj.projectInfo.scriptContent) {
+                        fountainInput.value = filmproj.projectInfo.scriptContent;
+                    } else {
+                        // Fallback for older .filmproj files without scriptContent
                         let fountainText = '';
                         if (filmproj.scenes && Array.isArray(filmproj.scenes)) {
                             filmproj.scenes.forEach(scene => {
@@ -1209,23 +1215,33 @@ async function saveAsPdfUnicode() {
                                 }
                             });
                         }
+                        fountainInput.value = fountainText.trim();
+                    }
 
-                        if (fountainInput) fountainInput.value = fountainText.trim();
+                    if (!fountainInput.value) {
+                        setPlaceholder();
+                    } else {
                         clearPlaceholder();
                     }
-                } catch (err) {
-                    alert('Invalid .filmproj file format');
                 }
-            } else {
-                if (fountainInput) fountainInput.value = content;
-                clearPlaceholder();
+            } catch (err) {
+                alert('Invalid .filmproj file format. Could not load project.');
+                console.error("Error parsing .filmproj file:", err);
             }
+        } else {
+            // For .fountain or .txt files
+            fountainInput.value = content;
+            clearPlaceholder();
+        }
 
-            history.add(fountainInput.value);
-            saveProjectData();
-        };
-        reader.readAsText(file, 'UTF-8');
-    }
+        history.add(fountainInput.value);
+        saveProjectData();
+        // After loading, sync everything to be safe
+        syncAll(true);
+        updateSceneNavigator();
+    };
+    reader.readAsText(file, 'UTF-8');
+}
 
     // Modal functions
     function createModal(id, title, body, footer) {
