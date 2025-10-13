@@ -658,7 +658,7 @@ body.fullscreen-active #desktop-side-toolbar {
     display: none;
     opacity: 0;
     visibility: hidden;
-    transition: bottom 0.3s ease, opacity 0.2s ease, visibility 0.2s ease; /* Enhanced with bottom transition for keyboard */
+    transition: bottom 0.25s ease-out, opacity 0.2s ease, visibility 0.2s ease; /* Enhanced with bottom transition for keyboard */
     bottom: 0; /* Default: at viewport bottom */
 }
 
