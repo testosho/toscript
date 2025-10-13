@@ -1928,6 +1928,69 @@ function updateFocusModeButton() {
     }
 }
 
+
+// NEW: Reliable Mobile Keyboard Toolbar Handler
+function setupKeyboardToolbarHandler() {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile) return; // Only run on mobile devices
+
+    const toolbar = document.getElementById('mobile-keyboard-toolbar');
+    const fountainInput = document.getElementById('fountain-input');
+    const body = document.body;
+    
+    if (!toolbar || !fountainInput) return;
+
+    // Use the modern visualViewport API if available
+    if ('visualViewport' in window) {
+        const initialHeight = window.innerHeight;
+
+        window.visualViewport.addEventListener('resize', () => {
+            // Get the height of the area covered by the keyboard
+            const keyboardHeight = initialHeight - window.visualViewport.height;
+
+            if (keyboardHeight > 100) { // A threshold to confirm keyboard is up
+                // The keyboard is visible. Position the toolbar above it.
+                // The bottom offset is the height of the keyboard.
+                toolbar.style.bottom = `${keyboardHeight}px`;
+                body.classList.add('keyboard-visible');
+                body.classList.remove('keyboard-hidden');
+            } else {
+                // The keyboard is hidden. Dock the toolbar at the bottom.
+                toolbar.style.bottom = '0px';
+                body.classList.remove('keyboard-visible');
+                body.classList.add('keyboard-hidden');
+            }
+        });
+
+    } else {
+        // Fallback for older browsers without visualViewport
+        window.addEventListener('resize', () => {
+            const currentHeight = window.innerHeight;
+            const initialHeight = parseFloat(body.dataset.initialHeight || currentHeight);
+            
+            if (!body.dataset.initialHeight) {
+                body.dataset.initialHeight = initialHeight;
+            }
+
+            if (initialHeight - currentHeight > 100) { // Keyboard is likely up
+                body.classList.add('keyboard-visible');
+                body.classList.remove('keyboard-hidden');
+            } else {
+                body.classList.remove('keyboard-visible');
+                body.classList.add('keyboard-hidden');
+            }
+        });
+    }
+
+    // Always show the toolbar in write mode on mobile when the editor is focused
+    fountainInput.addEventListener('focus', () => {
+        if (currentView === 'write') {
+            showMobileToolbar();
+        }
+    });
+
+    console.log('Reliable Keyboard Toolbar Handler Initialized.');
+}
 	
 	
     // Scene Navigator with Drag & Drop
@@ -3164,6 +3227,7 @@ document.addEventListener('webkitfullscreenchange', () => {
     }
 
         setupEventListeners();
+		setupKeyboardToolbarHandler();
         setupKeyboardDetection();
         loadProjectData();
 
