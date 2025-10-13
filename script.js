@@ -1992,6 +1992,59 @@ function setupKeyboardToolbarHandler() {
     console.log('Reliable Keyboard Toolbar Handler Initialized.');
 }
 	
+	// =======================================================================
+	// == DEFINITIVE MOBILE KEYBOARD TOOLBAR HANDLER
+	// =======================================================================
+	function attachKeyboardToolbarListener() {
+	    // Check if we are on a modern mobile device that supports the visualViewport API
+	    const isModernMobile = 'visualViewport' in window && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+
+	    if (!isModernMobile) {
+	        // If not, we don't run this logic. The toolbar will remain docked at the bottom.
+	        return;
+	    }
+
+	    const toolbar = document.getElementById('mobile-keyboard-toolbar');
+	    const body = document.body;
+
+	    if (!toolbar) {
+	        console.error('Toolbar element with ID "mobile-keyboard-toolbar" was not found!');
+	        return;
+	    }
+
+	    // This function runs every time the visual viewport resizes
+	    const handleViewportResize = () => {
+	        // The height of the browser window, which doesn't change when the keyboard appears.
+	        const staticLayoutHeight = window.innerHeight;
+	        // The height of the *visible* area of the page. This shrinks when the keyboard is open.
+	        const dynamicVisibleHeight = window.visualViewport.height;
+
+	        // The difference between the two is the exact height of the keyboard.
+	        const keyboardHeight = staticLayoutHeight - dynamicVisibleHeight;
+
+	        // We use a threshold to make sure it's actually the keyboard and not a minor resize event.
+	        const keyboardThreshold = 100; // pixels
+
+	        if (keyboardHeight > keyboardThreshold) {
+	            // --- Keyboard is UP ---
+	            // We set the toolbar's 'bottom' style to the keyboard's height.
+	            // This makes it sit perfectly on top of the keyboard.
+	            toolbar.style.bottom = `${keyboardHeight}px`;
+	            body.classList.add('keyboard-visible');
+	            body.classList.remove('keyboard-hidden');
+	        } else {
+	            // --- Keyboard is DOWN ---
+	            // We reset the toolbar's position back to the bottom of the screen.
+	            toolbar.style.bottom = '0px';
+	            body.classList.remove('keyboard-visible');
+	            body.classList.add('keyboard-hidden');
+	        }
+	    };
+
+	    // Attach the listener to the resize event of the visualViewport
+	    window.visualViewport.addEventListener('resize', handleViewportResize);
+	    console.log('✅ Definitive Keyboard Toolbar Listener has been attached.');
+	}
 	
     // Scene Navigator with Drag & Drop
     function updateSceneNavigator() {
@@ -3228,6 +3281,7 @@ document.addEventListener('webkitfullscreenchange', () => {
 
         setupEventListeners();
 		setupKeyboardToolbarHandler();
+		attachKeyboardToolbarListener(); 
         setupKeyboardDetection();
         loadProjectData();
 
