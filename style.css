@@ -10,6 +10,8 @@
     --card-bg-color: #1f2937;
     --card-text-color: #f3f4f6;
     --card-border-color: #374151;
+    --keyboard-height: 0px; /* Added for dynamic toolbar positioning */
+    --safe-area-bottom: 0px; /* For iOS safe areas */
 }
 
 * {
@@ -656,7 +658,8 @@ body.fullscreen-active #desktop-side-toolbar {
     display: none;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
+    transition: bottom 0.3s ease, opacity 0.2s ease, visibility 0.2s ease; /* Enhanced with bottom transition for keyboard */
+    bottom: 0; /* Default: at viewport bottom */
 }
 
 .mobile-keyboard-toolbar.show {
@@ -665,7 +668,14 @@ body.fullscreen-active #desktop-side-toolbar {
     visibility: visible;
 }
 
-* FIXED: Always show on mobile */
+/* Fallback for iOS safe areas */
+@supports (bottom: env(safe-area-inset-bottom)) {
+    .mobile-keyboard-toolbar {
+        bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* Always show on mobile */
 @media (max-width: 768px) {
     .mobile-keyboard-toolbar {
         display: block !important; /* Force display on mobile */
@@ -678,6 +688,22 @@ body.fullscreen-active #desktop-side-toolbar {
     
     #fountain-input {
         padding-bottom: 80px !important;
+        transition: padding-bottom 0.3s ease; /* Smooth resize */
+    }
+    
+    /* When keyboard is up, increase padding to push content above toolbar + keyboard */
+    body.keyboard-visible #write-view.active #fountain-input {
+        padding-bottom: calc(80px + var(--keyboard-height, 0px));
+    }
+    
+    /* Optional: Slightly fade toolbar when keyboard is down for a "docked" feel */
+    .mobile-keyboard-toolbar.keyboard-hidden {
+        opacity: 0.8;
+        transition: opacity 0.2s ease;
+    }
+    
+    .mobile-keyboard-toolbar.keyboard-visible {
+        opacity: 1;
     }
 }
 
@@ -691,7 +717,6 @@ body.fullscreen-active #desktop-side-toolbar {
     height: auto;
     padding: 4px 0;
 }
-
 
 /* Modern compact buttons */
 .keyboard-btn {
@@ -1618,4 +1643,3 @@ body.focus-mode-active #fountain-input {
     padding: 2rem;
     height: calc(100vh - 80px);
 }
-
