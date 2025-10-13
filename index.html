@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    
     <header id="main-header" class="page-header write-mode-header">
         <div class="header-left">
             <button id="hamburger-btn" class="icon-btn" title="Menu"><i class="fas fa-bars"></i></button>
@@ -110,6 +111,10 @@
                     <button class="action-btn" data-action="caps" title="Toggle Case (UPPER/lower)">Aa</button>
                     <button class="action-btn" data-action="parens" title="Add Parentheses">()</button>
                     <button class="action-btn" data-action="transition" title="Cycle Transition">TO:</button>
+          <!-- NEW: Focus Mode Button (Shows in Fullscreen Only) -->
+    <button id="focus-mode-btn" class="action-btn" style="display: none; background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 10px; font-size: 0.85rem;" title="Toggle Focus Mode">
+        Focus
+    </button>
                 </div>
             </div>
         </div>
@@ -124,14 +129,14 @@
     </main>
     
     <div id="mobile-keyboard-toolbar" class="mobile-keyboard-toolbar">
-        <div class="keyboard-toolbar-content">
-            <button class="keyboard-btn" data-action="scene" title="I/E">I/E</button>
-            <button class="keyboard-btn" data-action="time" title="D/N">D/N</button>
-            <button class="keyboard-btn" data-action="caps" title="Aa">Aa</button>
-            <button class="keyboard-btn" data-action="parens" title="()">()</button>
-            <button class="keyboard-btn" data-action="transition" title="TO:">TO:</button>
-        </div>
+    <div class="keyboard-toolbar-content">
+        <button class="keyboard-btn" data-action="scene" title="INT/EXT">I/E</button>
+        <button class="keyboard-btn" data-action="time" title="DAY/NIGHT">D/N</button>
+        <button class="keyboard-btn" data-action="caps" title="CAPS">Aa</button>
+        <button class="keyboard-btn" data-action="parens" title="Parentheses">()</button>
+        <button class="keyboard-btn" data-action="transition" title="Transitions">TO:</button>
     </div>
+</div>
     
     <div id="scene-navigator-panel" class="side-panel">
         <div class="panel-header">
