@@ -18,6 +18,29 @@
     box-sizing: border-box;
 }
 
+/* ADD THESE UPDATED RULES */
+html, body {
+    height: 100%;
+    overflow: hidden;
+    position: relative; 
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1 1 auto;
+    overflow: hidden; 
+    /* The height is now 100% controlled by the JavaScript */
+}
+
+/* Give the textarea some permanent padding so text isn't hidden by the toolbar */
+#fountain-input {
+    padding-bottom: 70px !important; 
+}
+
 html {
     height: 100%;
     height: 100vh;
@@ -684,16 +707,6 @@ body.fullscreen-active #desktop-side-toolbar {
     #write-view.active ~ .mobile-keyboard-toolbar {
         opacity: 1;
         visibility: visible;
-    }
-    
-    #fountain-input {
-        padding-bottom: 80px !important;
-        transition: padding-bottom 0.3s ease; /* Smooth resize */
-    }
-    
-    /* When keyboard is up, increase padding to push content above toolbar + keyboard */
-    body.keyboard-visible #write-view.active #fountain-input {
-        padding-bottom: calc(80px + var(--keyboard-height, 0px));
     }
     
     /* Optional: Slightly fade toolbar when keyboard is down for a "docked" feel */
