@@ -18,6 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isUpdatingFromSync = false;
     let currentPage = 0;
     const cardsPerPage = 5;
+	
+	let initialViewportHeight = window.innerHeight;
+	let isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+	let resizeDebounceTimer;
+	const toolbar = document.getElementById('mobile-keyboard-toolbar');
+	const body = document.body;
 
     // DOM elements
     const fountainInput = document.getElementById('fountain-input');
@@ -103,6 +109,53 @@ FADE OUT.`;
             redoBtns.forEach(btn => { if (btn) btn.disabled = this.currentIndex >= this.stack.length - 1; });
         }
     };
+	
+	function handleKeyboardVisibility() {
+	        if (!isMobile || !mobileToolbar) return;
+        
+	        let currentHeight = window.innerHeight;
+	        let keyboardHeight = Math.max(0, initialViewportHeight - currentHeight);
+        
+	        // iOS Safari fallback: Use visualViewport if available (better for split-view/keyboard)
+	        if ('visualViewport' in window) {
+	            const vv = window.visualViewport;
+	            keyboardHeight = Math.max(keyboardHeight, initialViewportHeight - (vv ? vv.height : currentHeight));
+	        }
+        
+	        const safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom') || '0', 10) || 0;
+	        const toolbarHeight = mobileToolbar.offsetHeight || 60; // Approximate if not rendered
+        
+	        if (keyboardHeight > 50) { // Threshold to ignore minor resizes (e.g., orientation)
+	            // Keyboard up: Position toolbar above keyboard
+	            mobileToolbar.style.bottom = `${keyboardHeight}px`;
+	            body.classList.add('keyboard-visible');
+	            body.classList.remove('keyboard-hidden');
+	            body.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+            
+	            // Optional: Scroll to keep cursor visible
+	            if (fountainInput && document.activeElement === fountainInput) {
+	                setTimeout(() => {
+	                    fountainInput.scrollIntoView({ block: 'nearest' });
+	                }, 100);
+	            }
+	        } else {
+	            // Keyboard down: Dock at bottom
+	            mobileToolbar.style.bottom = `0px`; // Or env(safe-area-inset-bottom) if supported
+	            body.classList.add('keyboard-hidden');
+	            body.classList.remove('keyboard-visible');
+	            body.style.setProperty('--keyboard-height', `0px`);
+	        }
+        
+	        // Update initial height on orientation change (debounce to wait for stabilize)
+	        if (Math.abs(initialViewportHeight - currentHeight) > 100) {
+	            initialViewportHeight = currentHeight;
+	        }
+	    }
+
+	    function onResize() {
+	        clearTimeout(resizeDebounceTimer);
+	        resizeDebounceTimer = setTimeout(handleKeyboardVisibility, 150); // 150ms debounce
+	    }
 
     // Mobile Keyboard Detection
    function setupKeyboardDetection() {
@@ -262,6 +315,54 @@ function getElementType(line, nextLine, inDialogue) {
     
     // Default to action
     return 'action';
+}
+
+// Paste the functions here:
+function handleKeyboardVisibility() {
+    if (!isMobile || !toolbar) return;
+    
+    let currentHeight = window.innerHeight;
+    let keyboardHeight = Math.max(0, initialViewportHeight - currentHeight);
+    
+    // iOS Safari fallback: Use visualViewport if available (better for split-view/keyboard)
+    if ('visualViewport' in window) {
+        const vv = window.visualViewport;
+        keyboardHeight = Math.max(keyboardHeight, initialViewportHeight - (vv ? vv.height : currentHeight));
+    }
+    
+    const safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom') || '0', 10) || 0;
+    const toolbarHeight = toolbar.offsetHeight || 60; // Approximate if not rendered
+    
+    if (keyboardHeight > 50) { // Threshold to ignore minor resizes (e.g., orientation)
+        // Keyboard up: Position toolbar above keyboard
+        toolbar.style.bottom = `${keyboardHeight}px`;
+        body.classList.add('keyboard-visible');
+        body.classList.remove('keyboard-hidden');
+        body.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+        
+        // Optional: Scroll to keep cursor visible
+        if (fountainInput && document.activeElement === fountainInput) {
+            setTimeout(() => {
+                fountainInput.scrollIntoView({ block: 'nearest' });
+            }, 100);
+        }
+    } else {
+        // Keyboard down: Dock at bottom
+        toolbar.style.bottom = `0px`; // Or env(safe-area-inset-bottom) if supported
+        body.classList.add('keyboard-hidden');
+        body.classList.remove('keyboard-visible');
+        body.style.setProperty('--keyboard-height', `0px`);
+    }
+    
+    // Update initial height on orientation change (debounce to wait for stabilize)
+    if (Math.abs(initialViewportHeight - currentHeight) > 100) {
+        initialViewportHeight = currentHeight;
+    }
+}
+
+function onResize() {
+    clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(handleKeyboardVisibility, 150); // 150ms debounce
 }
 
 
@@ -2958,17 +3059,55 @@ function updateFocusModeButton() {
         });
     });
 
-    // Mobile Keyboard Buttons - FIXED
-    const mobileKeyboardBtns = document.querySelectorAll('.keyboard-btn');
-    mobileKeyboardBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const action = btn.getAttribute('data-action');
-            console.log('Mobile button clicked:', action); // Debug log
-            handleActionBtn(action);
-        });
-    });
+	// Mobile Keyboard Buttons - FIXED
+	const mobileKeyboardBtns = document.querySelectorAll('.keyboard-btn');
+	mobileKeyboardBtns.forEach(btn => {
+	    btn.addEventListener('click', (e) => {
+	        e.preventDefault();
+	        e.stopPropagation();
+	        const action = btn.getAttribute('data-action');
+	        console.log('Mobile button clicked:', action); // Debug log
+	        handleActionBtn(action);
+	    });
+	});
+	
+    // NEW: Mobile keyboard visibility detection (full block, no truncation)
+           if (isMobile) {
+               window.addEventListener('resize', onResize);
+               window.addEventListener('orientationchange', () => {
+                   setTimeout(() => {
+                       initialViewportHeight = window.innerHeight;
+                       handleKeyboardVisibility();
+                   }, 300); // Wait for orientation to settle
+               });
+            
+               // Initial check on load
+               handleKeyboardVisibility();
+            
+               // Optional: Listen to focus/blur on textarea for more precise triggers
+               if (fountainInput) {
+                   fountainInput.addEventListener('focus', () => {
+                       setTimeout(handleKeyboardVisibility, 100); // Delay for keyboard animation
+                   });
+                   fountainInput.addEventListener('blur', () => {
+                       setTimeout(() => {
+                           // Force hide if blurred
+                           mobileToolbar.style.bottom = '0px';
+                           body.classList.add('keyboard-hidden');
+                           body.classList.remove('keyboard-visible');
+                           body.style.setProperty('--keyboard-height', `0px`);
+                       }, 200);
+                   });
+               }
+           }
+
+           // NEW: Optional safe-area for iOS (runs once)
+           if ('CSS' in window && 'supports' in window.CSS && window.CSS.supports('padding: env(safe-area-inset-bottom)')) {
+               const safeAreaBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)') || '34', 10);
+               document.documentElement.style.setProperty('--safe-area-bottom', `${safeAreaBottom}px`);
+           }
+	
+	
     // ***** END OF NEW CODE *****
 
         document.addEventListener('click', e => {
