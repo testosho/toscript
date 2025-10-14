@@ -2327,8 +2327,8 @@ function setupKeyboardToolbarHandler() {
         alert('Export to .filmproj is a PRO feature. Coming soon!');
     }
 
-	// =======================================================================
-// == FINAL UNIFIED PDF GENERATOR (v2 - Hardened against stack overflow)
+// =======================================================================
+// == FINAL PDF GENERATOR (v3 - Asynchronous Chunk Processing)
 // =======================================================================
 async function generateFinalPdf() {
     if (!fountainInput || isPlaceholder()) {
@@ -2340,14 +2340,12 @@ async function generateFinalPdf() {
         return;
     }
 
-    showProgressModal("Loading font & generating professional PDF...");
-
-    // Use a setTimeout to allow the UI to update before the heavy lifting begins
-    await new Promise(resolve => setTimeout(resolve, 50));
+    showProgressModal("Initializing PDF generation...");
+    await new Promise(resolve => setTimeout(resolve, 50)); // Allow modal to render
 
     try {
-        // --- 1. Load the Custom Font for Unicode Support ---
-        const fontResponse = await fetch('fonts/MyFont.ttf'); // Assuming you use the 'fonts' folder
+        // --- 1. Load Font & Setup PDF Document ---
+        const fontResponse = await fetch('fonts/MyFont.ttf');
         if (!fontResponse.ok) {
             throw new Error("Font file 'MyFont.ttf' not found. Please ensure it is in the 'fonts' folder.");
         }
@@ -2357,12 +2355,11 @@ async function generateFinalPdf() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-        // --- 2. Add and Set the Font ---
         doc.addFileToVFS('MyUnicodeFont.ttf', fontInBase64);
         doc.addFont('MyUnicodeFont.ttf', 'MyUnicodeFont', 'normal');
         doc.setFont('MyUnicodeFont');
 
-        // --- 3. Build the PDF with Professional Layout Rules ---
+        // --- 2. Setup Layout Constants ---
         const PAGE_WIDTH = 612;
         const PAGE_HEIGHT = 792;
         const MARGINS = { top: 72, bottom: 72, left: 108, right: 72 };
@@ -2372,13 +2369,24 @@ async function generateFinalPdf() {
         
         doc.setFontSize(FONT_SIZE);
         let cursorY = MARGINS.top;
+        let inDialogue = false;
 
         const scriptText = fountainInput.value;
         const lines = scriptText.split('\n');
-        let inDialogue = false;
-        
+
+        // --- 3. Process the script in chunks to prevent crashes ---
+        const chunkSize = 50; // Process 50 lines at a time
         for (let i = 0; i < lines.length; i++) {
-            // Check for page overflow at the start of each line
+            
+            // --- THIS IS THE KEY CHANGE ---
+            // After every chunk, update the progress and pause to let the browser breathe.
+            // This prevents the call stack from getting too large.
+            if (i > 0 && i % chunkSize === 0) {
+                updateProgressModal(`Processing... line ${i} of ${lines.length}`);
+                await new Promise(resolve => setTimeout(resolve, 0)); 
+            }
+            
+            // The rest of the logic is the same as before
             if (cursorY >= PAGE_HEIGHT - MARGINS.bottom) {
                 doc.addPage();
                 cursorY = MARGINS.top;
@@ -2387,16 +2395,17 @@ async function generateFinalPdf() {
             const line = lines[i].trim();
             const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
             
-            if (!line) { // Handle blank lines from the script
+            if (!line) { 
                 cursorY += LINE_HEIGHT;
                 inDialogue = false;
                 continue;
             }
             
             const elementType = getElementType(line, nextLine, inDialogue);
-
             let textBlock;
+
             switch (elementType) {
+                // (The switch case logic remains identical to the previous version)
                 case 'scene-heading':
                     cursorY += LINE_HEIGHT * 2;
                     if (cursorY >= PAGE_HEIGHT - MARGINS.bottom - (LINE_HEIGHT * 2)) { doc.addPage(); cursorY = MARGINS.top; }
@@ -2440,6 +2449,9 @@ async function generateFinalPdf() {
             }
         }
 
+        updateProgressModal("Finalizing document...");
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         // --- 4. Save the Final Document ---
         doc.save(`${projectData.projectInfo.projectName || 'screenplay'}-final.pdf`);
 
@@ -2450,7 +2462,6 @@ async function generateFinalPdf() {
         hideProgressModal();
     }
 }
-	
     // File opening
     function openFountainFile(event) {
         const file = event.target.files[0];
