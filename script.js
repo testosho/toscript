@@ -2328,130 +2328,114 @@ function setupKeyboardToolbarHandler() {
     }
 
 // =======================================================================
-// == FINAL PDF GENERATOR (v3 - Asynchronous Chunk Processing)
+// == FINAL PDF GENERATOR (v4 - Hybrid html2canvas Paginator)
 // =======================================================================
 async function generateFinalPdf() {
     if (!fountainInput || isPlaceholder()) {
         alert("There is no script to export.");
         return;
     }
-    if (typeof window.jspdf === 'undefined') {
-        alert('PDF library not loaded. Please refresh the page.');
+    if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+        alert('Required libraries (jspdf, html2canvas) not loaded.');
         return;
     }
 
-    showProgressModal("Initializing PDF generation...");
-    await new Promise(resolve => setTimeout(resolve, 50)); // Allow modal to render
+    showProgressModal("Preparing script for rendering...");
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
-        // --- 1. Load Font & Setup PDF Document ---
-        const fontResponse = await fetch('fonts/MyFont.ttf');
-        if (!fontResponse.ok) {
-            throw new Error("Font file 'MyFont.ttf' not found. Please ensure it is in the 'fonts' folder.");
-        }
-        const fontBuffer = await fontResponse.arrayBuffer();
-        const fontInBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(fontBuffer)));
-
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-        doc.addFileToVFS('MyUnicodeFont.ttf', fontInBase64);
-        doc.addFont('MyUnicodeFont.ttf', 'MyUnicodeFont', 'normal');
-        doc.setFont('MyUnicodeFont');
+        // --- 1. Prepare a temporary, printable version of the script ---
+        const printContainer = document.createElement('div');
+        printContainer.style.cssText = `
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 8.5in;
+            background: white;
+            font-family: 'Courier Prime', 'Courier New', monospace;
+            font-size: 12pt;
+            color: black;
+        `;
+        document.body.appendChild(printContainer);
 
-        // --- 2. Setup Layout Constants ---
-        const PAGE_WIDTH = 612;
-        const PAGE_HEIGHT = 792;
-        const MARGINS = { top: 72, bottom: 72, left: 108, right: 72 };
-        const INDENTS = { scene: 108, action: 108, character: 266, parenthetical: 223, dialogue: 180, transition: 432 };
-        const FONT_SIZE = 12;
-        const LINE_HEIGHT = 14;
+        // Render the script into the hidden div to get all the styled elements
+        renderEnhancedScript(); // Assumes this function populates #screenplay-output
+        const scriptContent = document.getElementById('screenplay-output');
+        if (!scriptContent) throw new Error("Could not find script content to render.");
         
-        doc.setFontSize(FONT_SIZE);
-        let cursorY = MARGINS.top;
-        let inDialogue = false;
+        const allElements = Array.from(scriptContent.cloneNode(true).children);
+        
+        const PAGE_HEIGHT_PT = 792; // 11 inches * 72 pt/inch
+        const MARGIN_TOP_PT = 72; // 1 inch
+        const MARGIN_BOTTOM_PT = 72; // 1 inch
+        const CONTENT_HEIGHT_PT = PAGE_HEIGHT_PT - MARGIN_TOP_PT - MARGIN_BOTTOM_PT;
 
-        const scriptText = fountainInput.value;
-        const lines = scriptText.split('\n');
+        let pages = [];
+        let currentPageElements = [];
+        printContainer.innerHTML = `<div id="page-measure" style="padding: ${MARGIN_TOP_PT}pt 72pt 0 108pt;"></div>`;
+        const pageMeasureDiv = document.getElementById('page-measure');
 
-        // --- 3. Process the script in chunks to prevent crashes ---
-        const chunkSize = 50; // Process 50 lines at a time
-        for (let i = 0; i < lines.length; i++) {
+        // --- 2. Manually Paginate the HTML Content ---
+        updateProgressModal("Paginating script...");
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        for (let i = 0; i < allElements.length; i++) {
+            const el = allElements[i];
             
-            // --- THIS IS THE KEY CHANGE ---
-            // After every chunk, update the progress and pause to let the browser breathe.
-            // This prevents the call stack from getting too large.
-            if (i > 0 && i % chunkSize === 0) {
-                updateProgressModal(`Processing... line ${i} of ${lines.length}`);
-                await new Promise(resolve => setTimeout(resolve, 0)); 
+            // Widow/Orphan Control: Don't leave a character name at the bottom of a page
+            if (el.classList.contains('character') && pageMeasureDiv.scrollHeight + 50 > CONTENT_HEIGHT_PT) {
+                 pages.push(pageMeasureDiv.cloneNode(true));
+                 pageMeasureDiv.innerHTML = '';
             }
+
+            pageMeasureDiv.appendChild(el);
+
+            // If adding the element overflows the page, create a new page
+            if (pageMeasureDiv.scrollHeight > CONTENT_HEIGHT_PT) {
+                pageMeasureDiv.removeChild(el); // Remove the element that caused the overflow
+                pages.push(pageMeasureDiv.cloneNode(true)); // Save the completed page
+                
+                // Start the new page
+                pageMeasureDiv.innerHTML = ''; 
+                pageMeasureDiv.appendChild(el); // Add the overflowed element to the new page
+            }
+        }
+        pages.push(pageMeasureDiv.cloneNode(true)); // Add the last page
+
+        document.body.removeChild(printContainer); // Clean up the temporary div
+
+        // --- 3. Convert Each HTML Page to a Canvas and Add to PDF ---
+        for (let i = 0; i < pages.length; i++) {
+            updateProgressModal(`Rendering page ${i + 1} of ${pages.length}...`);
+            const pageHtml = pages[i];
             
-            // The rest of the logic is the same as before
-            if (cursorY >= PAGE_HEIGHT - MARGINS.bottom) {
+            // Temporarily add the page back to the DOM to be rendered by html2canvas
+            const pageWrapper = document.createElement('div');
+            pageWrapper.style.cssText = `position: absolute; left: -9999px; top: 0; background: white; width: 8.5in; height: 11in;`;
+            pageWrapper.appendChild(pageHtml);
+            document.body.appendChild(pageWrapper);
+
+            const canvas = await html2canvas(pageWrapper, {
+                scale: 2, // Increase scale for higher quality
+                logging: false,
+            });
+
+            document.body.removeChild(pageWrapper); // Clean up
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            
+            if (i > 0) {
                 doc.addPage();
-                cursorY = MARGINS.top;
             }
-
-            const line = lines[i].trim();
-            const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
-            
-            if (!line) { 
-                cursorY += LINE_HEIGHT;
-                inDialogue = false;
-                continue;
-            }
-            
-            const elementType = getElementType(line, nextLine, inDialogue);
-            let textBlock;
-
-            switch (elementType) {
-                // (The switch case logic remains identical to the previous version)
-                case 'scene-heading':
-                    cursorY += LINE_HEIGHT * 2;
-                    if (cursorY >= PAGE_HEIGHT - MARGINS.bottom - (LINE_HEIGHT * 2)) { doc.addPage(); cursorY = MARGINS.top; }
-                    doc.text(line.toUpperCase(), INDENTS.scene, cursorY);
-                    cursorY += LINE_HEIGHT * 2;
-                    inDialogue = false;
-                    break;
-                case 'character':
-                    cursorY += LINE_HEIGHT;
-                    if (cursorY >= PAGE_HEIGHT - MARGINS.bottom - (LINE_HEIGHT * 2)) { doc.addPage(); cursorY = MARGINS.top; }
-                    doc.text(line.toUpperCase(), INDENTS.character, cursorY);
-                    cursorY += LINE_HEIGHT;
-                    inDialogue = true;
-                    break;
-                case 'dialogue':
-                    textBlock = doc.splitTextToSize(line, PAGE_WIDTH - INDENTS.dialogue - MARGINS.right);
-                    doc.text(textBlock, INDENTS.dialogue, cursorY);
-                    cursorY += textBlock.length * LINE_HEIGHT;
-                    break;
-                case 'parenthetical':
-                    textBlock = doc.splitTextToSize(line, PAGE_WIDTH - INDENTS.parenthetical - MARGINS.right - 100);
-                    doc.text(textBlock, INDENTS.parenthetical, cursorY);
-                    cursorY += textBlock.length * LINE_HEIGHT;
-                    break;
-                case 'transition':
-                    cursorY += LINE_HEIGHT * 2;
-                    doc.text(line.toUpperCase(), INDENTS.transition, cursorY);
-                    cursorY += LINE_HEIGHT * 2;
-                    inDialogue = false;
-                    break;
-                case 'action':
-                default:
-                    textBlock = doc.splitTextToSize(line, PAGE_WIDTH - INDENTS.action - MARGINS.right);
-                    if (cursorY + (textBlock.length * LINE_HEIGHT) >= PAGE_HEIGHT - MARGINS.bottom) {
-                         doc.addPage(); cursorY = MARGINS.top;
-                    }
-                    doc.text(textBlock, INDENTS.action, cursorY);
-                    cursorY += (textBlock.length * LINE_HEIGHT) + LINE_HEIGHT;
-                    inDialogue = false;
-                    break;
-            }
+            doc.addImage(imgData, 'JPEG', 0, 0, PAGE_WIDTH, PAGE_HEIGHT);
         }
 
         updateProgressModal("Finalizing document...");
         await new Promise(resolve => setTimeout(resolve, 50));
-
+        
         // --- 4. Save the Final Document ---
         doc.save(`${projectData.projectInfo.projectName || 'screenplay'}-final.pdf`);
 
