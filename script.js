@@ -2328,125 +2328,128 @@ function setupKeyboardToolbarHandler() {
     }
 
 	// =======================================================================
-	// == FINAL UNIFIED PDF GENERATOR (Professional + Unicode/Indian Languages)
-	// =======================================================================
-	async function generateFinalPdf() {
-	    if (!fountainInput || isPlaceholder()) {
-	        alert("There is no script to export.");
-	        return;
-	    }
-	    if (typeof window.jspdf === 'undefined') {
-	        alert('PDF library not loaded. Please refresh the page.');
-	        return;
-	    }
+// == FINAL UNIFIED PDF GENERATOR (v2 - Hardened against stack overflow)
+// =======================================================================
+async function generateFinalPdf() {
+    if (!fountainInput || isPlaceholder()) {
+        alert("There is no script to export.");
+        return;
+    }
+    if (typeof window.jspdf === 'undefined') {
+        alert('PDF library not loaded. Please refresh the page.');
+        return;
+    }
 
-	    showProgressModal("Loading font & generating professional PDF...");
+    showProgressModal("Loading font & generating professional PDF...");
 
-	    try {
-	        // --- 1. Load the Custom Font for Unicode Support ---
-	        const fontResponse = await fetch('MyFont.ttf');
-	        if (!fontResponse.ok) {
-	            throw new Error("Font file 'MyFont.ttf' not found. Please add it to your project folder.");
-	        }
-	        const fontBuffer = await fontResponse.arrayBuffer();
-	        const fontInBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(fontBuffer)));
+    // Use a setTimeout to allow the UI to update before the heavy lifting begins
+    await new Promise(resolve => setTimeout(resolve, 50));
 
-	        const { jsPDF } = window.jspdf;
-	        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    try {
+        // --- 1. Load the Custom Font for Unicode Support ---
+        const fontResponse = await fetch('fonts/MyFont.ttf'); // Assuming you use the 'fonts' folder
+        if (!fontResponse.ok) {
+            throw new Error("Font file 'MyFont.ttf' not found. Please ensure it is in the 'fonts' folder.");
+        }
+        const fontBuffer = await fontResponse.arrayBuffer();
+        const fontInBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(fontBuffer)));
 
-	        // --- 2. Add the Font to the PDF and Set It ---
-	        doc.addFileToVFS('MyUnicodeFont.ttf', fontInBase64);
-	        doc.addFont('MyUnicodeFont.ttf', 'MyUnicodeFont', 'normal');
-	        doc.setFont('MyUnicodeFont'); // Use this font for the entire document
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-	        // --- 3. Build the PDF with Professional Layout Rules ---
-	        const MARGINS = { top: 72, bottom: 72, left: 108, right: 72 };
-	        const INDENTS = { scene: 108, action: 108, character: 266, parenthetical: 223, dialogue: 180, transition: 432 };
-	        const FONT_SIZE = 12;
-	        const LINE_HEIGHT = 14; // Slightly increased for better readability of Indian scripts
+        // --- 2. Add and Set the Font ---
+        doc.addFileToVFS('MyUnicodeFont.ttf', fontInBase64);
+        doc.addFont('MyUnicodeFont.ttf', 'MyUnicodeFont', 'normal');
+        doc.setFont('MyUnicodeFont');
+
+        // --- 3. Build the PDF with Professional Layout Rules ---
+        const PAGE_WIDTH = 612;
+        const PAGE_HEIGHT = 792;
+        const MARGINS = { top: 72, bottom: 72, left: 108, right: 72 };
+        const INDENTS = { scene: 108, action: 108, character: 266, parenthetical: 223, dialogue: 180, transition: 432 };
+        const FONT_SIZE = 12;
+        const LINE_HEIGHT = 14;
         
-	        doc.setFontSize(FONT_SIZE);
-	        let cursorY = MARGINS.top;
+        doc.setFontSize(FONT_SIZE);
+        let cursorY = MARGINS.top;
 
-	        const addPageIfNeeded = () => {
-	            if (cursorY > 792 - MARGINS.bottom) {
-	                doc.addPage();
-	                cursorY = MARGINS.top;
-	            }
-	        };
-
-	        const scriptText = fountainInput.value;
-	        const lines = scriptText.split('\n');
-	        let inDialogue = false;
+        const scriptText = fountainInput.value;
+        const lines = scriptText.split('\n');
+        let inDialogue = false;
         
-	        for (let i = 0; i < lines.length; i++) {
-	            const line = lines[i].trim();
-	            const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
-	            const elementType = getElementType(line, nextLine, inDialogue);
+        for (let i = 0; i < lines.length; i++) {
+            // Check for page overflow at the start of each line
+            if (cursorY >= PAGE_HEIGHT - MARGINS.bottom) {
+                doc.addPage();
+                cursorY = MARGINS.top;
+            }
+
+            const line = lines[i].trim();
+            const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
             
-	            if (!line) { // Handle blank lines
-	                cursorY += LINE_HEIGHT;
-	                inDialogue = false;
-	                continue;
-	            }
+            if (!line) { // Handle blank lines from the script
+                cursorY += LINE_HEIGHT;
+                inDialogue = false;
+                continue;
+            }
+            
+            const elementType = getElementType(line, nextLine, inDialogue);
 
-	            let textBlock;
-	            switch (elementType) {
-	                case 'scene-heading':
-	                    cursorY += LINE_HEIGHT * 2;
-	                    addPageIfNeeded();
-	                    if (cursorY + (LINE_HEIGHT * 2) > 792 - MARGINS.bottom) { doc.addPage(); cursorY = MARGINS.top; }
-	                    doc.text(line.toUpperCase(), INDENTS.scene, cursorY);
-	                    cursorY += LINE_HEIGHT * 2;
-	                    inDialogue = false;
-	                    break;
-	                case 'character':
-	                    cursorY += LINE_HEIGHT;
-	                    addPageIfNeeded();
-	                    if (cursorY + (LINE_HEIGHT * 2) > 792 - MARGINS.bottom) { doc.addPage(); cursorY = MARGINS.top; }
-	                    doc.text(line.toUpperCase(), INDENTS.character, cursorY);
-	                    cursorY += LINE_HEIGHT;
-	                    inDialogue = true;
-	                    break;
-	                case 'dialogue':
-	                    textBlock = doc.splitTextToSize(line, 612 - INDENTS.dialogue - MARGINS.right);
-	                    doc.text(textBlock, INDENTS.dialogue, cursorY);
-	                    cursorY += textBlock.length * LINE_HEIGHT;
-	                    break;
-	                case 'parenthetical':
-	                    textBlock = doc.splitTextToSize(line, 612 - INDENTS.parenthetical - MARGINS.right - 100);
-	                    doc.text(textBlock, INDENTS.parenthetical, cursorY);
-	                    cursorY += textBlock.length * LINE_HEIGHT;
-	                    break;
-	                case 'transition':
-	                    cursorY += LINE_HEIGHT * 2;
-	                    addPageIfNeeded();
-	                    doc.text(line.toUpperCase(), INDENTS.transition, cursorY);
-	                    cursorY += LINE_HEIGHT * 2;
-	                    inDialogue = false;
-	                    break;
-	                case 'action':
-	                default:
-	                    textBlock = doc.splitTextToSize(line, 612 - INDENTS.action - MARGINS.right);
-	                    if (cursorY + (textBlock.length * LINE_HEIGHT) > 792 - MARGINS.bottom) { addPageIfNeeded(); }
-	                    doc.text(textBlock, INDENTS.action, cursorY);
-	                    cursorY += (textBlock.length + 1) * LINE_HEIGHT;
-	                    inDialogue = false;
-	                    break;
-	            }
-	            addPageIfNeeded();
-	        }
+            let textBlock;
+            switch (elementType) {
+                case 'scene-heading':
+                    cursorY += LINE_HEIGHT * 2;
+                    if (cursorY >= PAGE_HEIGHT - MARGINS.bottom - (LINE_HEIGHT * 2)) { doc.addPage(); cursorY = MARGINS.top; }
+                    doc.text(line.toUpperCase(), INDENTS.scene, cursorY);
+                    cursorY += LINE_HEIGHT * 2;
+                    inDialogue = false;
+                    break;
+                case 'character':
+                    cursorY += LINE_HEIGHT;
+                    if (cursorY >= PAGE_HEIGHT - MARGINS.bottom - (LINE_HEIGHT * 2)) { doc.addPage(); cursorY = MARGINS.top; }
+                    doc.text(line.toUpperCase(), INDENTS.character, cursorY);
+                    cursorY += LINE_HEIGHT;
+                    inDialogue = true;
+                    break;
+                case 'dialogue':
+                    textBlock = doc.splitTextToSize(line, PAGE_WIDTH - INDENTS.dialogue - MARGINS.right);
+                    doc.text(textBlock, INDENTS.dialogue, cursorY);
+                    cursorY += textBlock.length * LINE_HEIGHT;
+                    break;
+                case 'parenthetical':
+                    textBlock = doc.splitTextToSize(line, PAGE_WIDTH - INDENTS.parenthetical - MARGINS.right - 100);
+                    doc.text(textBlock, INDENTS.parenthetical, cursorY);
+                    cursorY += textBlock.length * LINE_HEIGHT;
+                    break;
+                case 'transition':
+                    cursorY += LINE_HEIGHT * 2;
+                    doc.text(line.toUpperCase(), INDENTS.transition, cursorY);
+                    cursorY += LINE_HEIGHT * 2;
+                    inDialogue = false;
+                    break;
+                case 'action':
+                default:
+                    textBlock = doc.splitTextToSize(line, PAGE_WIDTH - INDENTS.action - MARGINS.right);
+                    if (cursorY + (textBlock.length * LINE_HEIGHT) >= PAGE_HEIGHT - MARGINS.bottom) {
+                         doc.addPage(); cursorY = MARGINS.top;
+                    }
+                    doc.text(textBlock, INDENTS.action, cursorY);
+                    cursorY += (textBlock.length * LINE_HEIGHT) + LINE_HEIGHT;
+                    inDialogue = false;
+                    break;
+            }
+        }
 
-	        // --- 4. Save the Final Document ---
-	        doc.save(`${projectData.projectInfo.projectName || 'screenplay'}-final.pdf`);
+        // --- 4. Save the Final Document ---
+        doc.save(`${projectData.projectInfo.projectName || 'screenplay'}-final.pdf`);
 
-	    } catch (error) {
-	        console.error("Failed to generate final PDF:", error);
-	        alert(`PDF Generation Failed: ${error.message}`);
-	    } finally {
-	        hideProgressModal();
-	    }
-	}
+    } catch (error) {
+        console.error("Failed to generate final PDF:", error);
+        alert(`PDF Generation Failed: ${error.message}`);
+    } finally {
+        hideProgressModal();
+    }
+}
 	
     // File opening
     function openFountainFile(event) {
