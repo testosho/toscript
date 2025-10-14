@@ -2196,83 +2196,46 @@ function setupKeyboardToolbarHandler() {
         if (sceneNavigatorPanel) sceneNavigatorPanel.classList.remove('open');
     }
 
-    function exportSceneOrderAsText() {
-        const scenes = projectData.projectInfo.scenes;
-        if (scenes.length === 0) {
-            alert('No scenes to export');
-            return;
-        }
+	// NEW: Exports the scene order as a properly formatted CSV file
+	function exportSceneOrderAsCsv() {
+	    const scenes = projectData.projectInfo.scenes;
+	    if (scenes.length === 0) {
+	        alert('No scenes to export');
+	        return;
+	    }
 
-        let orderText = `SCENE ORDER - ${projectData.projectInfo.projectName || 'Untitled'}\n`;
-        orderText += `Generated: ${new Date().toLocaleString()}\n`;
-        orderText += '='.repeat(60) + '\n\n';
+	    // Helper function to safely format a cell for CSV (handles commas)
+	    const escapeCsvCell = (cell) => {
+	        const cellStr = String(cell || '').replace(/"/g, '""'); // Escape double quotes
+	        if (cellStr.includes(',')) {
+	            return `"${cellStr}"`; // Wrap in double quotes if it contains a comma
+	        }
+	        return cellStr;
+	    };
 
-        scenes.forEach(scene => {
-            orderText += `Scene ${scene.number}: ${scene.heading}\n`;
-            orderText += `  Location: ${scene.location}\n`;
-            orderText += `  Time: ${scene.timeOfDay}\n`;
-            orderText += `  Type: ${scene.sceneType}\n`;
-            if (scene.characters.length > 0) {
-                orderText += `  Characters: ${scene.characters.join(', ')}\n`;
-            }
-            orderText += '\n';
-        });
+	    // Define the headers for your CSV file
+	    const headers = ["Scene No", "INT./EXT.", "Scene Location", "Time of Day", "Characters"];
+    
+	    // Convert each scene object into a row of data
+	    const rows = scenes.map(scene => {
+	        const sceneData = [
+	            scene.number,
+	            scene.sceneType,
+	            scene.location,
+	            scene.timeOfDay,
+	            scene.characters.join(' | ') // Join multiple characters with a pipe separator
+	        ];
+	        return sceneData.map(escapeCsvCell).join(',');
+	    });
 
-        const blob = new Blob([orderText], { type: 'text/plain' });
-        downloadBlob(blob, `${projectData.projectInfo.projectName || 'screenplay'}-scene-order.txt`);
-    }
+	    // Combine the headers and all the rows
+	    const csvContent = [headers.join(','), ...rows].join('\n');
 
-    // Mobile Card Actions - Show/Hide on Tap
-    function setupMobileCardActions() {
-        if (window.innerWidth > 768) return;
-        
-        const cardContainer = document.getElementById('card-container');
-        if (!cardContainer) return;
-        
-        console.log('Setting up mobile card actions...');
-        
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.scene-card') && !e.target.closest('.card-actions')) {
-                document.querySelectorAll('.scene-card.active').forEach(card => {
-                    card.classList.remove('active');
-                });
-            }
-        });
-        
-        cardContainer.addEventListener('click', (e) => {
-            const card = e.target.closest('.scene-card');
-            
-            if (e.target.closest('.card-actions')) {
-                return;
-            }
-            
-            if (e.target.closest('.card-scene-title') || 
-                e.target.closest('.card-description') || 
-                e.target.closest('.card-scene-number')) {
-                return;
-            }
-            
-            if (card) {
-                e.stopPropagation();
-                
-                const wasActive = card.classList.contains('active');
-                
-                document.querySelectorAll('.scene-card.active').forEach(otherCard => {
-                    if (otherCard !== card) {
-                        otherCard.classList.remove('active');
-                    }
-                });
-                
-                if (wasActive) {
-                    card.classList.remove('active');
-                } else {
-                    card.classList.add('active');
-                }
-            }
-        });
-        
-        console.log('Mobile card actions setup complete');
-    }
+	    // Create a blob and trigger the download
+	    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+	    const filename = `${projectData.projectInfo.projectName || 'screenplay'}-scene-order.csv`;
+	    downloadBlob(blob, filename);
+	}
 
     // Filter Functions
     function handleFilterChange() {
@@ -2937,9 +2900,9 @@ function setupKeyboardToolbarHandler() {
         }
 
         const exportBtn = document.getElementById('export-scene-order-btn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', exportSceneOrderAsText);
-        }
+	   if (exportBtn) {
+	       exportBtn.addEventListener('click', exportSceneOrderAsCsv);
+	   }
 
         // FIXED: Add new card button (header)
         const addNewCardBtn = document.getElementById('add-new-card-btn');
