@@ -2367,11 +2367,12 @@ async function generateFinalPdf() {
         if (!scriptContent) throw new Error("Could not find script content to render.");
         
         const allElements = Array.from(scriptContent.cloneNode(true).children);
-        
-        const PAGE_HEIGHT_PT = 792; // 11 inches * 72 pt/inch
-        const MARGIN_TOP_PT = 72; // 1 inch
-        const MARGIN_BOTTOM_PT = 72; // 1 inch
-        const CONTENT_HEIGHT_PT = PAGE_HEIGHT_PT - MARGIN_TOP_PT - MARGIN_BOTTOM_PT;
+		
+        const PAGE_WIDTH = 612;    // 8.5 inches in points
+		const PAGE_HEIGHT = 792;   // 11 inches in points
+		const MARGIN_TOP_PT = 72;  // 1 inch
+		const MARGIN_BOTTOM_PT = 72; // 1 inch
+		const CONTENT_HEIGHT_PT = PAGE_HEIGHT - MARGIN_TOP_PT - MARGIN_BOTTOM_PT;
 
         let pages = [];
         let currentPageElements = [];
