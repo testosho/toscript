@@ -223,34 +223,36 @@ function hideMobileToolbar() {
         localStorage.setItem('universalFilmProjectToScript', JSON.stringify(projectData));
     }
 
-    function loadProjectData() {
-        const savedData = localStorage.getItem('universalFilmProjectToScript');
-        if (savedData) {
-            try {
-                projectData = JSON.parse(savedData);
-            } catch (e) {
-                console.warn('Failed to parse saved data');
-                projectData = {
-                    projectInfo: {
-                        projectName: 'Untitled',
-                        prodName: 'Author',
-                        scriptContent: '',
-                        scenes: []
-                    }
-                };
-            }
-        }
-        if (fountainInput) {
-            if (projectData.projectInfo.scriptContent && projectData.projectInfo.scriptContent.trim()) {
-                fountainInput.value = projectData.projectInfo.scriptContent;
-                fountainInput.classList.remove('placeholder');
-            } else {
-                setPlaceholder();
-            }
-        }
-        updateSceneNoIndicator();
-        updateAutoSaveIndicator();
-    }
+   function loadProjectData() {
+       const savedData = localStorage.getItem('universalFilmProjectToScript');
+       const editor = document.getElementById('rich-editor');
+       if (!editor) return;
+
+       if (savedData) {
+           try {
+               projectData = JSON.parse(savedData);
+           } catch (e) {
+               console.warn('Failed to parse saved data');
+               // Reset project data if parsing fails
+           }
+       }
+    
+       if (projectData.projectInfo.scriptContent && projectData.projectInfo.scriptContent.trim()) {
+           // Convert plain text from local storage into divs
+           editor.innerHTML = '<div>' + projectData.projectInfo.scriptContent.replace(/\n/g, '</div><div>') + '</div>';
+        
+           // --- THIS IS THE FIX ---
+           // Call the formatting function to style the loaded content
+           formatEditorContent();
+       } else {
+           // Set placeholder if no content
+           editor.innerHTML = `<div>${placeholderText.replace(/\n/g, '</div><div>')}</div>`;
+           formatEditorContent();
+       }
+    
+       updateSceneNoIndicator();
+       updateAutoSaveIndicator();
+   }
 
 
 // Helper function to determine element type
@@ -2053,6 +2055,49 @@ function setupKeyboardToolbarHandler() {
 	    console.log('✅ Final Mobile Viewport Manager Initialized.');
 	}
 	
+	
+    // The main formatting function
+    const formatEditorContent = () => {
+        const lines = Array.from(editor.childNodes);
+        let previousLineType = null;
+
+        lines.forEach(line => {
+            if (line.nodeType !== 1) return; // Ensure it's an element
+            let text = line.textContent.trim().toUpperCase();
+            let currentLineType = 'action'; // Default
+        
+            // Determine the line type based on content
+            if (text.startsWith('INT.') || text.startsWith('EXT.')) {
+                currentLineType = 'scene-heading';
+            } else if (text.endsWith('TO:') || text === 'FADE OUT.' || text === 'FADE IN:') {
+                currentLineType = 'transition';
+            } else if (text.startsWith('(') && text.endsWith(')')) {
+                currentLineType = 'parenthetical';
+            } else if (previousLineType === 'character' || previousLineType === 'parenthetical') {
+                currentLineType = 'dialogue';
+            } else if (text.length > 0 && text === line.textContent.trim() && !text.includes(' ')) {
+                 // Simple check for character: uppercase, one word
+                if(lines.indexOf(line) + 1 < lines.length) {
+                    currentLineType = 'character';
+                }
+            }
+
+            // Apply the correct class
+            line.className = `editor-${currentLineType}`;
+
+            // Rule 1 & 2: Auto-casing
+            if (currentLineType === 'scene-heading') {
+                line.textContent = line.textContent.toUpperCase();
+            } else if (previousLineType === 'scene-heading' && line.textContent.length > 0) {
+                // Capitalize first letter of action line
+                line.textContent = line.textContent.charAt(0).toUpperCase() + line.textContent.slice(1);
+            }
+
+            previousLineType = currentLineType;
+        });
+    };
+	
+	
 	// =======================================================================
 	// == NEW: Real-Time Rich Editor Manager
 	// =======================================================================
@@ -2069,46 +2114,6 @@ function setupKeyboardToolbarHandler() {
 	        return text.join('\n');
 	    };
 
-	    // The main formatting function
-	    const formatEditorContent = () => {
-	        const lines = Array.from(editor.childNodes);
-	        let previousLineType = null;
-
-	        lines.forEach(line => {
-	            if (line.nodeType !== 1) return; // Ensure it's an element
-	            let text = line.textContent.trim().toUpperCase();
-	            let currentLineType = 'action'; // Default
-            
-	            // Determine the line type based on content
-	            if (text.startsWith('INT.') || text.startsWith('EXT.')) {
-	                currentLineType = 'scene-heading';
-	            } else if (text.endsWith('TO:') || text === 'FADE OUT.' || text === 'FADE IN:') {
-	                currentLineType = 'transition';
-	            } else if (text.startsWith('(') && text.endsWith(')')) {
-	                currentLineType = 'parenthetical';
-	            } else if (previousLineType === 'character' || previousLineType === 'parenthetical') {
-	                currentLineType = 'dialogue';
-	            } else if (text.length > 0 && text === line.textContent.trim() && !text.includes(' ')) {
-	                 // Simple check for character: uppercase, one word
-	                if(lines.indexOf(line) + 1 < lines.length) {
-	                    currentLineType = 'character';
-	                }
-	            }
-
-	            // Apply the correct class
-	            line.className = `editor-${currentLineType}`;
-
-	            // Rule 1 & 2: Auto-casing
-	            if (currentLineType === 'scene-heading') {
-	                line.textContent = line.textContent.toUpperCase();
-	            } else if (previousLineType === 'scene-heading' && line.textContent.length > 0) {
-	                // Capitalize first letter of action line
-	                line.textContent = line.textContent.charAt(0).toUpperCase() + line.textContent.slice(1);
-	            }
-
-	            previousLineType = currentLineType;
-	        });
-	    };
 
 	    // Ensure editor always has at least one line
 	    editor.addEventListener('focus', () => {
@@ -2521,40 +2526,34 @@ async function generateFinalPdf() {
     }
 }
     // File opening
-    function openFountainFile(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+   function openFountainFile(event) {
+       const file = event.target.files[0];
+       if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = e => {
-            const content = e.target.result;
-            
-            if (file.name.endsWith('.filmproj')) {
-                try {
-                    const data = JSON.parse(content);
-                    projectData = data;
-                    if (fountainInput) {
-                        fountainInput.value = projectData.projectInfo.scriptContent || '';
-                        fountainInput.classList.remove('placeholder');
-                    }
-                } catch (err) {
-                    console.error('Failed to parse .filmproj file');
-                    alert('Invalid .filmproj file');
-                }
-            } else {
-                if (fountainInput) {
-                    fountainInput.value = content;
-                    fountainInput.classList.remove('placeholder');
-                }
-            }
+       const reader = new FileReader();
+       reader.onload = e => {
+           const content = e.target.result;
+           const editor = document.getElementById('rich-editor');
+           if (!editor) return;
 
-            history.add(fountainInput.value);
-            saveProjectData();
-            if (menuPanel) menuPanel.classList.remove('open');
-        };
-        reader.readAsText(file);
-        event.target.value = '';
-    }
+           // Clear the editor first
+           editor.innerHTML = '';
+
+           // Convert the plain text from the file into divs
+           editor.innerHTML = '<div>' + content.replace(/\n/g, '</div><div>') + '</div>';
+        
+           // --- THIS IS THE FIX ---
+           // Now, call the formatting function to style the loaded content
+           formatEditorContent();
+
+           // Add the new content to history and save
+           history.add(getFountainText());
+           saveProjectData();
+           if (menuPanel) menuPanel.classList.remove('open');
+       };
+       reader.readAsText(file);
+       event.target.value = ''; // Reset file input
+   }
 
     // Modal functions
     function createModal(id, title, bodyHTML, footerHTML) {
