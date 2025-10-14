@@ -7,21 +7,17 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;500;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     
-    <script src="https://cdn.jsdelivr.net/gh/mattdaly/Fountain.js@master/fountain.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js" defer></script>
     
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     
-    <header id="main-header" class="page-header write-mode-header">
+    <header id="main-header" class="page-header">
         <div class="header-left">
             <button id="hamburger-btn" class="icon-btn" title="Menu"><i class="fas fa-bars"></i></button>
         </div>
@@ -29,11 +25,11 @@
             <button id="show-script-btn" class="main-action-btn header-btn wide-btn">TO SCRIPT</button>
         </div>
         <div class="header-right">
-            <button id="scene-navigator-btn" class="icon-btn" title="Scene Navigator & Filters"><i class="fas fa-layer-group"></i></button>
+            <button id="scene-navigator-btn" class="icon-btn" title="Scene Navigator"><i class="fas fa-layer-group"></i></button>
         </div>
     </header>
     
-    <header id="script-header" class="page-header script-mode-header" style="display: none;">
+    <header id="script-header" class="page-header" style="display: none;">
         <div class="header-left">
             <button id="hamburger-btn-script" class="icon-btn" title="Menu"><i class="fas fa-bars"></i></button>
         </div>
@@ -41,11 +37,11 @@
             <button id="show-write-btn-header" class="main-action-btn header-btn wide-btn">TO WRITE</button>
         </div>
         <div class="header-right">
-            <button id="scene-navigator-btn-script" class="icon-btn" title="Scene Navigator & Filters"><i class="fas fa-layer-group"></i></button>
+            <button id="scene-navigator-btn-script" class="icon-btn" title="Scene Navigator"><i class="fas fa-layer-group"></i></button>
         </div>
     </header>
     
-    <header id="card-header" class="page-header card-mode-header" style="display: none;">
+    <header id="card-header" class="page-header" style="display: none;">
         <div class="header-left">
             <button id="hamburger-btn-card" class="icon-btn" title="Menu"><i class="fas fa-bars"></i></button>
         </div>
@@ -53,12 +49,8 @@
             <button id="show-write-btn-card-header" class="main-action-btn header-btn wide-btn">TO WRITE</button>
         </div>
         <div class="header-right">
-            <button id="add-new-card-btn" class="icon-btn" title="Add New Scene Card">
-                <i class="fas fa-plus"></i>
-            </button>
-            <button id="save-all-cards-btn" class="icon-btn" title="Save All Cards">
-                <i class="fas fa-download"></i>
-            </button>
+            <button id="add-new-card-btn" class="icon-btn" title="Add New Scene Card"><i class="fas fa-plus"></i></button>
+            <button id="save-all-cards-btn" class="icon-btn" title="Save All Cards"><i class="fas fa-download"></i></button>
         </div>
     </header>
     
@@ -73,10 +65,10 @@
                 <div id="save-menu" class="dropdown-content">
                     <a href="#" id="save-fountain-btn">.fountain (Text)</a>
                     <a href="#" id="save-pdf-btn">.pdf (Professional/Unicode)</a>
-                    <a href="#" id="save-filmproj-btn" class="pro-feature">.filmproj (for To Make/To Sched)</a>
+                    <a href="#" id="save-filmproj-btn" class="pro-feature">.filmproj (for To Sched)</a>
                 </div>
             </div>
-             <a href="#" id="auto-save-btn" class="flex-between">
+            <a href="#" id="auto-save-btn" class="flex-between">
                 <span><i class="fas fa-sync-alt"></i> Auto-Save</span>
                 <span id="auto-save-indicator" class="indicator off"></span>
             </a>
@@ -96,85 +88,58 @@
         <div id="write-view" class="view active">
             <div id="main-toolbar">
                 <button id="card-view-btn" class="toolbar-btn" title="Card View"><i class="fas fa-grip-vertical"></i></button>
-                <button id="zoom-in-btn" class="toolbar-btn" title="Zoom In"><i class="fas fa-search-plus"></i></button>
-                <button id="zoom-out-btn" class="toolbar-btn" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
                 <button id="undo-btn-top" class="toolbar-btn" disabled title="Undo"><i class="fas fa-undo"></i></button>
                 <button id="redo-btn-top" class="toolbar-btn" disabled title="Redo"><i class="fas fa-redo"></i></button>
                 <button id="fullscreen-btn-main" class="toolbar-btn" title="Toggle Fullscreen"><i class="fas fa-expand"></i></button>
             </div>
             <div class="editor-area">
-                <textarea id="fountain-input" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"></textarea>
+                <div id="rich-editor" class="rich-editor" contenteditable="true" spellcheck="false"></div>
                 <div id="desktop-side-toolbar">
-					<button class="action-btn" data-action="scene" title="Cycle Scene (INT./EXT.)">I/E</button>
-					<button class="action-btn" data-action="time" title="Cycle Time of Day (DAY/NIGHT)">D/N</button>
-					<button class="action-btn" data-action="character" title="Format as Character">C</button>
-					<button class="action-btn" data-action="dialogue" title="Format as Dialogue">D</button>
-					<button class="action-btn" data-action="parenthetical" title="Add Parentheses">()</button>
-					<button class="action-btn" data-action="transition" title="Cycle Transition">TO:</button>
-          <!-- NEW: Focus Mode Button (Shows in Fullscreen Only) -->
-    <button id="focus-mode-btn" class="action-btn" style="display: none; background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 10px; font-size: 0.85rem;" title="Toggle Focus Mode">
-        Focus
-    </button>
+                    <button class="action-btn" data-action="scene" title="Scene Heading">I/E</button>
+                    <button class="action-btn" data-action="character" title="Character">C</button>
+                    <button class="action-btn" data-action="dialogue" title="Dialogue">D</button>
+                    <button class="action-btn" data-action="parenthetical" title="Parenthetical">()</button>
+                    <button class="action-btn" data-action="transition" title="Transition">TO:</button>
                 </div>
             </div>
         </div>
         
         <div id="script-view" class="view">
-            <div class="preview-area"><div id="screenplay-output"></div></div>
+            <div id="screenplay-output"></div>
         </div>
         
         <div id="card-view" class="view">
-             <div id="card-container"></div>
+            <div id="card-container"></div>
         </div>
     </main>
     
     <div id="mobile-keyboard-toolbar" class="mobile-keyboard-toolbar">
-    <div class="keyboard-toolbar-content">
-		<button class="keyboard-btn" data-action="scene" title="INT/EXT">I/E</button>
-		<button class="keyboard-btn" data-action="time" title="DAY/NIGHT">D/N</button>
-		<button class="keyboard-btn" data-action="character" title="Character">C</button>
-		<button class="keyboard-btn" data-action="dialogue" title="Dialogue">D</button>
-		<button class="keyboard-btn" data-action="parens" title="Parentheses">()</button>
-		<button class="keyboard-btn" data-action="transition" title="Transitions">TO:</button>
+        <div class="keyboard-toolbar-content">
+            <button class="keyboard-btn" data-action="scene" title="Scene Heading">I/E</button>
+            <button class="keyboard-btn" data-action="character" title="Character">C</button>
+            <button class="keyboard-btn" data-action="dialogue" title="Dialogue">D</button>
+            <button class="keyboard-btn" data-action="parenthetical" title="Parenthetical">()</button>
+            <button class="keyboard-btn" data-action="transition" title="Transition">TO:</button>
+        </div>
     </div>
-</div>
     
     <div id="scene-navigator-panel" class="side-panel">
         <div class="panel-header">
-            <h2>Navigator & Filters</h2>
+            <h2>Navigator</h2>
             <button id="close-navigator-btn" class="icon-btn">&times;</button>
         </div>
         <div class="panel-section">
-            <h4>Filter Script</h4>
-            <select id="filter-category-select">
-                <option value="all">Show All Scenes</option>
-                <option value="sceneSetting">Scene Setting</option>
-                <option value="sceneType">INT./EXT.</option> 
-                <option value="cast">Character</option>
-                <option value="timeOfDay">Time of Day</option>
-            </select>
-            <input type="text" id="filter-value-input" placeholder="Type to filter..." style="display: none;">
-            <div class="panel-subtext" id="filter-help-text" style="display: none;">Enter keywords to filter scenes</div>
-        </div>
-        
-        <div class="panel-section">
-            <div class="reorder-header">
-                <h4>Reorder Scenes</h4>
-                <button id="export-scene-order-btn" class="export-btn" title="Export Scene Order">
-                    <i class="fas fa-download"></i> Save Order
-                </button>
-            </div>
             <p class="panel-subtext">Drag to reorder scenes • Click to jump</p>
             <ul id="scene-list"></ul>
         </div>
     </div>
     
-    <div id="info-modal" class="modal mobile-modal"></div>
-    <div id="about-modal" class="modal mobile-modal"></div>
-    <div id="title-page-modal" class="modal mobile-modal"></div>
-    <div id="project-info-modal" class="modal mobile-modal"></div>
+    <div id="info-modal" class="modal"></div>
+    <div id="about-modal" class="modal"></div>
+    <div id="title-page-modal" class="modal"></div>
+    <div id="project-info-modal" class="modal"></div>
     
-    <input type="file" id="file-input" style="display: none;" accept=".fountain,.txt,.filmproj">
+    <input type="file" id="file-input" style="display: none;" accept=".fountain,.txt">
     
     <script src="script.js"></script>
 </body>
