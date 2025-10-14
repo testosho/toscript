@@ -2053,6 +2053,79 @@ function setupKeyboardToolbarHandler() {
 	    console.log('✅ Final Mobile Viewport Manager Initialized.');
 	}
 	
+	// =======================================================================
+	// == NEW: Real-Time Rich Editor Manager
+	// =======================================================================
+	function initializeRichEditor() {
+	    const editor = document.getElementById('rich-editor');
+	    if (!editor) return;
+
+	    // Helper to get the plain text content for saving
+	    const getEditorText = () => {
+	        let text = [];
+	        editor.childNodes.forEach(node => {
+	            text.push(node.textContent);
+	        });
+	        return text.join('\n');
+	    };
+
+	    // The main formatting function
+	    const formatEditorContent = () => {
+	        const lines = Array.from(editor.childNodes);
+	        let previousLineType = null;
+
+	        lines.forEach(line => {
+	            if (line.nodeType !== 1) return; // Ensure it's an element
+	            let text = line.textContent.trim().toUpperCase();
+	            let currentLineType = 'action'; // Default
+            
+	            // Determine the line type based on content
+	            if (text.startsWith('INT.') || text.startsWith('EXT.')) {
+	                currentLineType = 'scene-heading';
+	            } else if (text.endsWith('TO:') || text === 'FADE OUT.' || text === 'FADE IN:') {
+	                currentLineType = 'transition';
+	            } else if (text.startsWith('(') && text.endsWith(')')) {
+	                currentLineType = 'parenthetical';
+	            } else if (previousLineType === 'character' || previousLineType === 'parenthetical') {
+	                currentLineType = 'dialogue';
+	            } else if (text.length > 0 && text === line.textContent.trim() && !text.includes(' ')) {
+	                 // Simple check for character: uppercase, one word
+	                if(lines.indexOf(line) + 1 < lines.length) {
+	                    currentLineType = 'character';
+	                }
+	            }
+
+	            // Apply the correct class
+	            line.className = `editor-${currentLineType}`;
+
+	            // Rule 1 & 2: Auto-casing
+	            if (currentLineType === 'scene-heading') {
+	                line.textContent = line.textContent.toUpperCase();
+	            } else if (previousLineType === 'scene-heading' && line.textContent.length > 0) {
+	                // Capitalize first letter of action line
+	                line.textContent = line.textContent.charAt(0).toUpperCase() + line.textContent.slice(1);
+	            }
+
+	            previousLineType = currentLineType;
+	        });
+	    };
+
+	    // Ensure editor always has at least one line
+	    editor.addEventListener('focus', () => {
+	        if (editor.innerHTML === "") {
+	            editor.innerHTML = '<div><br></div>';
+	        }
+	    });
+
+	    editor.addEventListener('input', formatEditorContent);
+    
+	    // Initial format
+	    formatEditorContent();
+
+	    // Make old functions use the new editor's text
+	    window.getFountainText = getEditorText;
+	}
+	
     // Scene Navigator with Drag & Drop
     function updateSceneNavigator() {
         if (!sceneList) return;
@@ -3289,6 +3362,7 @@ document.addEventListener('webkitfullscreenchange', () => {
         setupEventListeners();
 		setupKeyboardToolbarHandler();
 		initializeMobileViewportManager(); 
+		initializeRichEditor();
         setupKeyboardDetection();
         loadProjectData();
 
