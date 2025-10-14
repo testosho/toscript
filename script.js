@@ -2327,80 +2327,127 @@ function setupKeyboardToolbarHandler() {
         alert('Export to .filmproj is a PRO feature. Coming soon!');
     }
 
-    async function saveAsPdfEnglish() {
-        if (typeof window.jspdf === 'undefined') {
-            alert('PDF library not loaded. Please refresh the page.');
-            return;
-        }
+	// =======================================================================
+	// == FINAL UNIFIED PDF GENERATOR (Professional + Unicode/Indian Languages)
+	// =======================================================================
+	async function generateFinalPdf() {
+	    if (!fountainInput || isPlaceholder()) {
+	        alert("There is no script to export.");
+	        return;
+	    }
+	    if (typeof window.jspdf === 'undefined') {
+	        alert('PDF library not loaded. Please refresh the page.');
+	        return;
+	    }
 
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+	    showProgressModal("Loading font & generating professional PDF...");
 
-        if (!screenplayOutput) return;
+	    try {
+	        // --- 1. Load the Custom Font for Unicode Support ---
+	        const fontResponse = await fetch('MyFont.ttf');
+	        if (!fontResponse.ok) {
+	            throw new Error("Font file 'MyFont.ttf' not found. Please add it to your project folder.");
+	        }
+	        const fontBuffer = await fontResponse.arrayBuffer();
+	        const fontInBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(fontBuffer)));
 
-        try {
-            await doc.html(screenplayOutput, {
-                callback: function(doc) {
-                    doc.save(`${projectData.projectInfo.projectName || 'screenplay'}.pdf`);
-                },
-                x: 10,
-                y: 10,
-                width: 190,
-                windowWidth: 800
-            });
-        } catch (error) {
-            console.error('PDF generation error:', error);
-            alert('Failed to generate PDF. Please try again.');
-        }
-    }
+	        const { jsPDF } = window.jspdf;
+	        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-    async function saveAsPdfUnicode() {
-        if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-            alert('Required libraries not loaded. Please refresh the page.');
-            return;
-        }
+	        // --- 2. Add the Font to the PDF and Set It ---
+	        doc.addFileToVFS('MyUnicodeFont.ttf', fontInBase64);
+	        doc.addFont('MyUnicodeFont.ttf', 'MyUnicodeFont', 'normal');
+	        doc.setFont('MyUnicodeFont'); // Use this font for the entire document
 
-        const { jsPDF } = window.jspdf;
+	        // --- 3. Build the PDF with Professional Layout Rules ---
+	        const MARGINS = { top: 72, bottom: 72, left: 108, right: 72 };
+	        const INDENTS = { scene: 108, action: 108, character: 266, parenthetical: 223, dialogue: 180, transition: 432 };
+	        const FONT_SIZE = 12;
+	        const LINE_HEIGHT = 14; // Slightly increased for better readability of Indian scripts
+        
+	        doc.setFontSize(FONT_SIZE);
+	        let cursorY = MARGINS.top;
 
-        if (!screenplayOutput) return;
+	        const addPageIfNeeded = () => {
+	            if (cursorY > 792 - MARGINS.bottom) {
+	                doc.addPage();
+	                cursorY = MARGINS.top;
+	            }
+	        };
 
-        try {
-            const canvas = await html2canvas(screenplayOutput, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff'
-            });
+	        const scriptText = fountainInput.value;
+	        const lines = scriptText.split('\n');
+	        let inDialogue = false;
+        
+	        for (let i = 0; i < lines.length; i++) {
+	            const line = lines[i].trim();
+	            const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : null;
+	            const elementType = getElementType(line, nextLine, inDialogue);
+            
+	            if (!line) { // Handle blank lines
+	                cursorY += LINE_HEIGHT;
+	                inDialogue = false;
+	                continue;
+	            }
 
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
+	            let textBlock;
+	            switch (elementType) {
+	                case 'scene-heading':
+	                    cursorY += LINE_HEIGHT * 2;
+	                    addPageIfNeeded();
+	                    if (cursorY + (LINE_HEIGHT * 2) > 792 - MARGINS.bottom) { doc.addPage(); cursorY = MARGINS.top; }
+	                    doc.text(line.toUpperCase(), INDENTS.scene, cursorY);
+	                    cursorY += LINE_HEIGHT * 2;
+	                    inDialogue = false;
+	                    break;
+	                case 'character':
+	                    cursorY += LINE_HEIGHT;
+	                    addPageIfNeeded();
+	                    if (cursorY + (LINE_HEIGHT * 2) > 792 - MARGINS.bottom) { doc.addPage(); cursorY = MARGINS.top; }
+	                    doc.text(line.toUpperCase(), INDENTS.character, cursorY);
+	                    cursorY += LINE_HEIGHT;
+	                    inDialogue = true;
+	                    break;
+	                case 'dialogue':
+	                    textBlock = doc.splitTextToSize(line, 612 - INDENTS.dialogue - MARGINS.right);
+	                    doc.text(textBlock, INDENTS.dialogue, cursorY);
+	                    cursorY += textBlock.length * LINE_HEIGHT;
+	                    break;
+	                case 'parenthetical':
+	                    textBlock = doc.splitTextToSize(line, 612 - INDENTS.parenthetical - MARGINS.right - 100);
+	                    doc.text(textBlock, INDENTS.parenthetical, cursorY);
+	                    cursorY += textBlock.length * LINE_HEIGHT;
+	                    break;
+	                case 'transition':
+	                    cursorY += LINE_HEIGHT * 2;
+	                    addPageIfNeeded();
+	                    doc.text(line.toUpperCase(), INDENTS.transition, cursorY);
+	                    cursorY += LINE_HEIGHT * 2;
+	                    inDialogue = false;
+	                    break;
+	                case 'action':
+	                default:
+	                    textBlock = doc.splitTextToSize(line, 612 - INDENTS.action - MARGINS.right);
+	                    if (cursorY + (textBlock.length * LINE_HEIGHT) > 792 - MARGINS.bottom) { addPageIfNeeded(); }
+	                    doc.text(textBlock, INDENTS.action, cursorY);
+	                    cursorY += (textBlock.length + 1) * LINE_HEIGHT;
+	                    inDialogue = false;
+	                    break;
+	            }
+	            addPageIfNeeded();
+	        }
 
-            const imgWidth = 210;
-            const pageHeight = 297;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
-            let position = 0;
+	        // --- 4. Save the Final Document ---
+	        doc.save(`${projectData.projectInfo.projectName || 'screenplay'}-final.pdf`);
 
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-
-            pdf.save(`${projectData.projectInfo.projectName || 'screenplay'}-unicode.pdf`);
-        } catch (error) {
-            console.error('PDF generation error:', error);
-            alert('Failed to generate PDF. Please try again.');
-        }
-    }
+	    } catch (error) {
+	        console.error("Failed to generate final PDF:", error);
+	        alert(`PDF Generation Failed: ${error.message}`);
+	    } finally {
+	        hideProgressModal();
+	    }
+	}
+	
     // File opening
     function openFountainFile(event) {
         const file = event.target.files[0];
@@ -2967,23 +3014,14 @@ function setupKeyboardToolbarHandler() {
             });
         }
 
-        const savePdfEnglishBtn = document.getElementById('save-pdf-english-btn');
-        if (savePdfEnglishBtn) {
-            savePdfEnglishBtn.addEventListener('click', e => {
-                e.preventDefault();
-                saveAsPdfEnglish();
-                if (menuPanel) menuPanel.classList.remove('open');
-            });
-        }
-
-        const savePdfUnicodeBtn = document.getElementById('save-pdf-unicode-btn');
-        if (savePdfUnicodeBtn) {
-            savePdfUnicodeBtn.addEventListener('click', e => {
-                e.preventDefault();
-                saveAsPdfUnicode();
-                if (menuPanel) menuPanel.classList.remove('open');
-            });
-        }
+		const savePdfBtn = document.getElementById('save-pdf-btn');
+		if (savePdfBtn) {
+		    savePdfBtn.addEventListener('click', e => {
+		        e.preventDefault();
+		        generateFinalPdf(); // Call the final unified function
+		        if (menuPanel) menuPanel.classList.remove('open');
+		    });
+		}
 
         const saveFilmprojBtn = document.getElementById('save-filmproj-btn');
         if (saveFilmprojBtn) {
