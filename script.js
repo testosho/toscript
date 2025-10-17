@@ -587,8 +587,6 @@ function onResize() {
         }
     }, 200);
 }
-	// 👇 ADD THIS LINE HERE, right before the function ends
-        document.body.dispatchEvent(new Event('viewchange'));
    }
    
 
@@ -1994,64 +1992,6 @@ function setupKeyboardToolbarHandler() {
     console.log('Reliable Keyboard Toolbar Handler Initialized.');
 }
 	
-	// =======================================================================
-	// == DEFINITIVE MOBILE KEYBOARD TOOLBAR HANDLER
-	// =======================================================================
-	// =======================================================================
-	// == FINAL - Mobile Viewport & Keyboard Manager
-	// =======================================================================
-	function initializeMobileViewportManager() {
-	    const isModernMobile = 'visualViewport' in window && /Mobi|Android|iPhone/i.test(navigator.userAgent);
-	    if (!isModernMobile) return;
-
-	    const mainHeader = document.getElementById('main-header');
-	    const mainContent = document.querySelector('.main-content');
-	    const toolbar = document.getElementById('mobile-keyboard-toolbar');
-	    const body = document.body;
-
-	    if (!mainContent || !toolbar || !mainHeader) {
-	        console.error("Required layout elements for viewport management are missing.");
-	        return;
-	    }
-
-	    const adjustLayout = () => {
-	        // Use the height of whichever header is currently visible
-	        const visibleHeader = document.querySelector('.page-header[style*="display: flex"]');
-	        const headerHeight = visibleHeader ? visibleHeader.offsetHeight : 55;
-
-	        // The exact height of the visible area (changes with keyboard)
-	        const visualHeight = window.visualViewport.height;
-
-	        // The difference between the full window and visible area is the keyboard's height
-	        const keyboardHeight = window.innerHeight - visualHeight;
-
-	        // --- CORE FIX ---
-	        // 1. Force the main content area to fill exactly the visible space below the header.
-	        mainContent.style.height = `${visualHeight - headerHeight}px`;
-        
-	        // 2. Position the toolbar based on the keyboard's height.
-	        if (keyboardHeight > 100) {
-	            // Keyboard is UP: Position toolbar on top of it.
-	            toolbar.style.bottom = `${keyboardHeight}px`;
-	            body.classList.add('keyboard-visible');
-	        } else {
-	            // Keyboard is DOWN: Dock toolbar at the very bottom.
-	            toolbar.style.bottom = '0px';
-	            body.classList.remove('keyboard-visible');
-	        }
-	    };
-
-	    // Run the adjustment logic whenever the viewport changes
-	    window.visualViewport.addEventListener('resize', adjustLayout);
-    
-	    // Also run it when the view is switched, as the header height might change
-	    document.body.addEventListener('viewchange', adjustLayout);
-
-	    // Run it once on initial load
-	    setTimeout(adjustLayout, 300); // Small delay to ensure layout is stable
-
-	    console.log('✅ Final Mobile Viewport Manager Initialized.');
-	}
 	
     // Scene Navigator with Drag & Drop
     function updateSceneNavigator() {
@@ -3288,7 +3228,6 @@ document.addEventListener('webkitfullscreenchange', () => {
 
         setupEventListeners();
 		setupKeyboardToolbarHandler();
-		initializeMobileViewportManager(); 
         setupKeyboardDetection();
         loadProjectData();
 
